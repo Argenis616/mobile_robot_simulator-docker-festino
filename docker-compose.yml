@@ -1,0 +1,24 @@
+# docker-compose.yml for execution container setting.
+
+version: '3'
+services:
+  moblie_robot_simulator_festino-cpu:
+    image: mobile_robot_simulator_festino:cpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+     - /tmp/.X11-unix:/tmp/.X11-unix
+    container_name: mobile_robot_simulator_festino-cpu
+    security_opt:
+    - seccomp:unconfined
+    network_mode: host
+    working_dir: /workspace
+    environment:
+      DISPLAY: $DISPLAY
+    command: /bin/bash -c "cd /catkin_ws && ./start.sh"
+    #command: roscore #This line for debug this container
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+        #tty: true

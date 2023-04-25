@@ -1,0 +1,1470 @@
+;********************************************************
+;*							*
+;*	ROS_virbot.clp					*
+;*							*
+;*							*
+;*			University of Mexico		*
+;*			Jesus Savage-Carmona		*
+;*							*
+;*			11/22/22			*
+;*			11/22/22			*
+;*							*
+;********************************************************
+
+
+(defglobal ?*num-vision* = 0)
+(defglobal ?*plan_number* = 0)
+(defglobal ?*plan_time* = 30000)
+;(defglobal ?*plan_number_new* = 0)
+
+
+
+;************************************************
+;*                                              *
+;*      Rules                                   *
+;*                                              *
+;************************************************
+
+
+(defrule exec-atrans
+	(declare (salience -8000))
+	(atrans (actor ?actor)(obj ?obj)(to ?person))
+	(objects (name ?obj))
+	(human (name ?person))
+	(robots (name ?actor) (zone ?zone)(hands nil))
+	(not (use vision)	)
+  	=>
+	(assert (ptrans (actor ?actor)(obj ?actor)(from ?zone)(to ?obj)))
+	(assert (ptrans (actor ?actor)(obj ?actor)(to ?person)))
+	(assert (grab (actor ?actor)(obj ?obj)))
+)
+
+
+(defrule exec-atrans-obj
+	(atrans (actor ?actor)(obj ?obj)(to ?person))
+	(objects (name ?obj))
+	(human (name ?person)(zone ?zone1))
+	(robots (name ?actor) (zone ?zone&:(neq ?zone1 ?zone))(hands ?obj))
+	(not (use vision)	)
+  	=>
+	(assert (ptrans (actor ?actor)(obj ?actor)(to ?person)))
+)
+
+
+
+(defrule exec-atrans-vision
+	?f <- (atrans (actor ?actor)(obj ?obj&:( neq ?obj nil))(to ?person))
+	(use vision)	
+  	=>
+	(retract ?f)
+	; it finds the representation of the object
+	(bind ?message (str-cat "I will find the " ?obj))
+	(assert (send-speech ?message))
+	(bind ?command (str-cat "" ?obj ""))
+	(assert (send-vision find_object ?command))
+	;(assert (get-data-vision 1 ?command))
+)
+
+
+;(defrule answer-find
+	;(declare (salience 100))
+	;?f <- (answer-vision find_object ?num ?obj $?dummy)
+	;=>
+	;(retract ?f)
+;	
+	;(if (eq ?num 1) then
+		;(bind ?message (str-cat "I found the " ?obj ))
+	  ;else
+		;(bind ?message (str-cat "I could not find " ?obj))
+	;)
+;
+	;(printout t crlf "Command: " ?message crlf)
+	;(assert (send-speech ?message))
+;)
+
+
+
+(defrule exec-ptrans-not-in-room
+	(declare (salience 100))
+	?f <- (ptrans (actor ?actor)(obj ?actor)(to ?obj))
+	(robots (name ?actor)(zone ?zone1))
+	(objects (name ?obj) (zone ?zone&:(neq ?zone1 ?zone)))
+	(not (robots (name ?actor)(hands ?obj)))
+  	=>
+	;(modify ?f (to ?zone))
+	; it goes to the selected zone
+	(assert (send FACE show processing))
+	(bind ?message (str-cat "I am going to " ?zone))
+	(assert (send-speech ?message))
+	(bind ?command (str-cat "" ?zone ""))
+	(assert (send-robot go_to_room ?command))
+	
+)
+
+(defrule exec-ptrans-same-room
+	(declare (salience 200))
+	?f <- (ptrans (actor ?actor)(obj ?actor)(to ?obj)(from ?from&:(neq ?from nil)) )
+	(objects (name ?obj) (zone ?zone))
+	(robots (name ?actor)(zone ?zone))
+  	=> 
+	;(retract ?f)
+	(assert (answer MVN-PLN go_to_room ?zone  1 1 1))
+)
+
+
+
+
+
+
+(defrule exec-attend
+	;(declare (salience -200))
+	?f <- (attend (actor ?actor)(obj ?obj&:( neq ?obj nil) )(to robot)(from human-voice) )
+  	=>
+	(retract ?f)
+	; it finds the representation of the object
+	(bind ?message (str-cat "I will do the trainning for the " ?obj))
+	(assert (send-speech ?message))
+	(bind ?command (str-cat "training " ?obj ))
+	(assert (send-vision ?command))
+	;(assert (get-data-vision 1 ?command))
+	(assert (get-data VISION $?command 1))
+
+)
+
+
+(defrule answer-training
+	?f <- (answer-vision training ?obj ?num)
+	=>
+	(retract ?f)
+	
+	(if (eq ?num 1) then
+		(bind ?message (str-cat "I created the pattern for " ?obj))
+	  else
+		(bind ?message (str-cat "I could not create the pattern for " ?obj))
+	)
+
+	(printout t crlf "Command: " ?message crlf)
+	(assert (send-speech ?message))
+)
+
+
+
+
+(defrule exec-ptrans-object
+	(declare (salience -7100))
+	?f <- (ptrans (actor ?actor)(obj ?obj)(to ?place))
+	(objects (name ?obj) (zone ?zone&:(neq ?place ?zone)))
+	(zones ?place ?x ?y)
+	;(not (robots (name ?actor)(hands ?obj)(zone ?zonerobot)) )
+	(robots (name ?actor)(hands nil)(zone ?zonerobot) )
+  	=>
+	(assert (ptrans (actor ?actor)(obj ?actor)(to ?obj)(from ?zonerobot)) )
+	(assert (ptrans (actor ?actor)(obj ?actor)(to ?place)(from ?zone)) )
+	(assert (grab (actor ?actor)(obj ?obj)))
+)
+
+
+(defrule exec-ptrans-object-hands
+	?f <- (answer MVN-PLN go_to_room ?place 1 $?dummy)
+	?f1 <- (ptrans (actor ?actor)(to ?place))
+	(objects (name ?obj))
+	?f2 <- (robots (name ?actor)(hands ?obj))
+  	=>
+	(retract ?f1)
+	(modify  ?f2 (zone ?place))
+	(assert (send-tk "PlotSensor"))
+)
+
+
+
+(defrule arrive-place-object
+	(declare (salience 300))
+	?f <- (answer MVN-PLN go_to_room ?place 1 $?dummy)
+	?f1 <- (ptrans (actor ?actor)(to ?obj))
+	(objects (name ?obj)(zone ?place))
+	(grab (obj ?obj))
+	?f2 <- (robots (name ?actor)(zone ?))
+	=>
+	(retract ?f)
+	(retract ?f1)
+	(modify  ?f2 (zone ?place))
+	;searchs and picks an object	
+	(bind ?command (str-cat "" ?obj "")) 
+	(assert (send-vision find_object ?command))
+	;(assert (get-data-vision 1 ?command))
+	(assert (send FACE show looking))	
+	(bind ?message (str-cat "I am looking for " ?obj))
+	(printout t crlf "Command: " ?message crlf)
+	(assert (send-speech ?message))
+	(assert (send-tk "PlotSensor"))
+	(bind ?*num-vision* 0)
+)
+
+
+
+(defrule found-pick-obj
+	?f <- (answer VISION find_object ?obj ?value $?dummy)
+	?f1 <- (grab (obj ?obj))
+	?f2 <- (robots (name ?actor)(hands nil)(manipulator ?arm))
+	=>
+	(retract ?f)
+	(if (> ?value .7) then
+		(retract ?f1)
+		(bind ?message (str-cat "I found the " ?obj))
+		(bind ?command (str-cat "" ?obj ""))
+		(if (eq ?arm lower) then
+        		(assert (send-manipulator grab ?command))
+                else
+                        (assert (send-manipulator take ?command))
+                )
+
+	else
+		(if (< ?*num-vision* 3) then
+			(bind ?dummy (str-cat "0 0.16 "))
+			(bind ?command (str-cat "" ?dummy ""))
+			(bind ?command-vision (str-cat "" all ""))
+			;(bind ?command (str-cat "" ?dummy ""))
+                	(assert (send-vision find_object ?command-vision))
+		else
+			(if (eq ?*num-vision* 3) then
+				(bind ?command-vision (str-cat "" ?obj ""))
+				(bind ?dummy (str-cat "0 -.48 "))
+				(bind ?command-vision (str-cat "" all ""))
+				;(bind ?command (str-cat "" ?dummy ""))
+			        (assert (send-vision find_object ?command-vision))
+
+	                else
+				(if (> ?*num-vision* 6) then
+					(bind ?dummy (str-cat "0 .48 "))
+					;(bind ?command (str-cat "" ?dummy ""))
+					(bind ?command-vision (str-cat "" all ""))
+					(bind ?command-manipulator (str-cat "" ?obj ""))
+					(if (eq ?arm lower) then
+                        			(assert (send-manipulator grab ?command))
+                			else
+                        			(assert (send-manipulator take ?command))
+                			)
+				else
+					(bind ?dummy (str-cat "0 -.16 "))
+					(bind ?command (str-cat "" ?dummy ""))
+					(bind ?command-vision (str-cat "" all ""))
+					;(bind ?command-vision (str-cat "" ?obj ""))
+	                                (assert (send-vision find_object ?command-vision))
+				)
+			)
+		)
+
+		(bind ?message (str-cat "I keep looking for the " ?obj))
+	       	(assert (send-robot move ?command))
+		(bind ?*num-vision* (+ ?*num-vision* 1))
+	)
+		
+	(assert (send-speech ?message))
+)
+
+
+
+(defrule grab
+        ?f <- (answer MANIPULATOR ?grab&:(or (eq ?grab grab) (eq ?grab take)) ?obj ?value $?dummy)
+        ?f2 <- (robots (name ?actor)(hands nil))
+	?f3 <- (human (objs $?ini_obj ?obj $?rest_obj))
+        =>
+	(if (eq ?value 1) then
+        	(retract ?f)
+        	(modify  ?f2 (hands ?obj))
+		(modify ?f3 (objs $?ini_obj $?rest_obj))
+        	(bind ?message (str-cat "I grab the " ?obj))
+        	(assert (send-speech ?message))
+	else
+		;fix this later
+		(modify  ?f2 (hands ?obj))
+                (modify ?f3 (objs $?ini_obj $?rest_obj))
+                (bind ?message (str-cat "I did not grab the " ?obj))
+                (assert (send-speech ?message))
+	)
+	;(assert (delete get-data MANIPULATOR))
+)
+
+
+(defrule grab-nobody
+	?f <- (answer MANIPULATOR ?grab&:(or (eq ?grab grab) (eq ?grab take)) ?obj ?value $?dummy)
+	?f2 <- (robots (name ?actor)(hands nil))
+	(not (human (objs $?ini_obj ?obj $?rest_obj)))
+	=>
+	(if (eq ?value 1) then
+		(retract ?f)
+		(modify  ?f2 (hands ?obj))
+
+		(bind ?message (str-cat "I grab the " ?obj))
+		(assert (send-speech ?message))
+	else
+                ;fix this later
+		(retract ?f)
+                (modify  ?f2 (hands ?obj))
+
+                (bind ?message (str-cat "I did not grab the " ?obj))
+                (assert (send-speech ?message))
+
+        )
+	;(assert (delete get-data MANIPULATOR))
+
+)
+
+
+(defrule wait-sp-gen-command
+	(declare (salience -100))
+        ?f <- (answer-SP-GEN ?command 1 $?dummy)
+        =>
+        (retract ?f )
+)
+
+
+
+
+
+(defrule go-person-atrans
+	(atrans (actor ?actor)(obj ?obj)(to ?person))
+	?f <- (ptrans (actor ?actor)(obj ?actor)(to ?person))
+	(robots (name ?actor)(hands ?obj)(zone ?zone_robot))
+	(human (name ?person) (zone ?zone))
+	=>
+	(modify ?f (from ?zone_robot)(to ?zone))
+	; it sends the robot to the asqued zone
+	(bind ?command (str-cat "" ?zone ""))
+	(assert (send-robot go_to_room ?command))
+	(assert (send FACE show processing))
+	(bind ?message (str-cat "I am going to " ?zone))
+	(assert (send-speech ?message))
+	;(printout t crlf "Command: " ?message crlf)
+
+)
+
+(defrule go-person
+	?f <- (ptrans (actor ?actor)(obj ?actor)(to ?person)(from ?from&:(neq ?from nil)) )
+	(human (name ?person) (zone ?zone))
+	(not (atrans ))
+	(not (answer MVN-PLN $?))
+	=>
+	;(retract ?f)
+	; it sends the robot to the asqued zone
+	(bind ?command (str-cat "" ?zone ""))
+        (assert (send-robot go_to_room ?command))
+	(assert (send FACE show processing))
+	(bind ?message (str-cat "I am going with the " ?person))
+	(assert (send-speech ?message))
+	;(printout t crlf "Command: " ?message crlf)
+
+)
+
+
+
+(defrule go-zone-not-same-zone-ROS
+	?f <- (ptrans (actor ?actor)(obj ?actor)(to ?room))
+	( Room (name ?room)(zone ?zone))
+	( item (type Robot) (name ?actor))
+	=>
+	(retract ?f)
+	; it sends the robot to the asqued zone
+	(bind ?*plan_number* (+ 1 ?*plan_number*))
+	(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+	(assert (plan (name ptrans)(id ?*plan_number* )(number 1 )(actions goto ?room ?zone)) )
+  	(assert (attempt (name ptrans) (id ?*plan_number*)(move robot)(room ?room)(zone ?zone)(on room)(number 1 )))
+	(assert (finish-planner ptrans ?*plan_number* ?*plan_number_new*))
+)
+
+
+
+(defrule delete-goto-ROS
+        ?f <- (plans ?id ?num ?success goto)
+        ?f1 <- (plan (id ?id)(number ?num )(actions goto ?room ?zone))
+        ?f2 <- (item (type Robot) (name ?actor))
+        =>
+        (retract ?f ?f1)
+        ; it modifies the robot position
+	(if (eq ?success 1) then
+	 	(modify ?f2 (room ?room)) 
+	)
+)
+
+
+(defrule delete-grab-ROS
+        ?f <- (plans ?id ?num ?success grab)
+        ?f1 <- (plan (id ?id)(number ?num )(actions grab ?object))
+        ?f2 <- (item (type Robot) (name ?actor))
+	?f3 <- (item (type Objects)(name ?object))
+        =>
+        (retract ?f ?f1)
+        ; it modifies the robot position
+        (if (eq ?success 1) then
+                (modify ?f2 (hands ?object))
+                (modify ?f3 (room robot))
+        )
+)
+
+
+(defrule delete-drop-ROS
+        ?f <- (plans ?id ?num ?success dropped)
+        ?f1 <- (plan (id ?id)(number ?num )(actions drop ?object))
+        ?f2 <- (item (type Robot) (name ?actor)(room ?zone-robot))
+	?f3 <- (item (type Objects)(name ?object))
+        =>
+        (retract ?f ?f1)
+        ; it modifies the robot position
+        (if (eq ?success 1) then
+                (modify ?f2 (hands nil))
+                (modify ?f3 (room ?zone-robot))
+        )
+)
+
+
+(defrule delete-find-object-ROS
+        ?f <- (plans ?id ?num ?success find-object)
+        ?f1 <- (plan (id ?id)(number ?num )(actions find-object ?object))
+        =>
+        (retract ?f ?f1)
+)
+
+
+(defrule delete-mv-ROS
+        ?f <- (plans ?id ?num ?success mv) 
+        ?f1 <- (plan (id ?id)(number ?num )(actions mv ?object))
+        =>
+        (retract ?f ?f1)
+)
+
+
+(defrule delete-go-place-ROS
+        ?f <- (plans ?id ?num ?success go) 
+        ?f1 <- (plan (id ?id)(number ?num )(actions go ?place))
+        =>
+        (retract ?f ?f1)
+)
+
+
+
+(defrule delete-attempt-atrans
+	(declare (salience 100))
+	?f <- (attempts ?id ?success)
+	?f1 <- (attempt (name atrans) (id ?id )(move ?obj)(room ?room-human)(zone ?zone-human)(on ?human))
+        ?f2 <- (item (type Objects) (name ?obj)(room ?room-obj)(zone ?zone))
+        ?f3 <- (item (type Human) (name ?human)(room ?room-human)(zone ?zone-human))
+	=>
+	(retract ?f)
+	(if (eq ?success 1) then
+		(retract ?f1)
+		(modify ?f2 (room ?room-human)(zone ?zone-human)(possession ?human))
+		(modify ?f3 (objs ?obj))
+	 else
+		(assert (fail-plan ?id))
+		(retract ?f1) ; modify this later
+	)
+)
+
+
+(defrule update-ownership-object
+        (item (type Objects) (name ?obj)(possession ?human))
+        ?f1 <- (item (type Human) (name ?human)(objs ?obj))
+        ?f2 <- (item (type Human) (name ?human1&:(neq ?human1 ?human))(objs ?obj))
+        =>
+        (modify ?f2 (objs nil))
+)
+
+
+
+(defrule delete-attempt-generic-ROS
+        ?f <- (attempts ?id ?success)
+        ?f1 <- (attempt (id ?id))
+        =>
+        (retract ?f)
+        (if (eq ?success 1) then
+                (retract ?f1)
+         else
+                (assert (fail-plan ?id))
+                (retract ?f1) ; modify this later
+        )
+)
+
+
+(defrule clear-first-upper-obj-ROS
+	(declare (salience 100))
+        (ptrans (actor ?actor)(obj ?obj)(to ?place))
+        (item (type Objects) (name ?obj)(room ?room)(zone ?zone)(upper ?upper-obj&:(neq ?upper-obj nothing)))
+        =>
+        (assert (goal (move ?upper-obj)(on freespace)))
+)
+
+(defrule clear-atrans-first-upper-obj-ROS
+        (declare (salience 100))
+        (atrans (actor ?actor)(obj ?obj)(to ?place))
+        (item (type Objects) (name ?obj)(room ?room)(zone ?zone)(upper ?upper-obj&:(neq ?upper-obj nothing)))
+        =>
+        (assert (goal (move ?upper-obj)(on freespace)))
+)
+
+(defrule clear-upper-objs-ROS
+        (declare (salience 200))
+        (ptrans (actor ?actor)(obj ?obj)(to ?place))
+        ?goal <- (goal (move ?obj1) (on freespace))
+        ?f1 <- (item (type Objects) (name ?obj1)(room ?room)(zone ?zone)(upper ?upper-obj&:(neq ?upper-obj nothing)))
+        =>
+        (assert (goal (move ?upper-obj)(on freespace)))
+        ;(modify ?f1 (upper nothing))
+)
+
+
+
+(defrule clear-atrans-upper-objs-ROS
+        (declare (salience 200))
+        (atrans (actor ?actor)(obj ?obj)(to ?place))
+	?goal <- (goal (move ?obj1) (on freespace))
+        ?f1 <- (item (type Objects) (name ?obj1)(room ?room)(zone ?zone)(upper ?upper-obj&:(neq ?upper-obj nothing)))
+        =>
+        (assert (goal (move ?upper-obj)(on freespace)))
+	;(modify ?f1 (upper nothing))
+)
+
+
+
+(defrule move-to-free-space-ROS
+        (declare (salience 100))
+	?goal <- (goal (move ?obj1) (on freespace))
+	(ptrans (actor ?actor)(obj ?obj)(to ?place))
+	?f1 <- (item (type Objects) (name ?obj)(room ?room)(zone ?zone))
+        (item (type Robot) (name ?actor))
+        ?f2 <- (item (type Objects) (name ?obj1)(room ?room)(zone ?zone)(upper nothing)(lower ?obj))
+        =>
+        (retract ?goal)
+	(modify ?f1 (upper nothing))
+	(modify ?f2 (lower base))
+	(bind ?*plan_number* (+ 1 ?*plan_number*))
+	(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (printout t ?obj1 " will be moved onto free space in room " ?room crlf)
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 1 )(actions goto ?room ?zone)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 2 )(actions find-object ?obj1)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 3 )(actions grab ?obj1 )(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 4 )(actions find-object freespace)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 5 )(actions go freespace)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 6 )(actions drop ?obj1 )(duration ?*plan_time*)) )
+        (assert (attempt (name ptrans) (id ?*plan_number*) (move ?obj1)(room ?room)(zone ?zone)(on freespace)(number 6 ) ))
+)
+
+
+(defrule atrans-move-to-free-space-ROS
+        (declare (salience 100))
+        ?goal <- (goal (move ?obj1) (on freespace))
+        (atrans (actor ?actor)(obj ?obj)(to ?place))
+        ?f1 <- (item (type Objects) (name ?obj)(room ?room)(zone ?zone))
+        (item (type Robot) (name ?actor))
+        ?f2 <- (item (type Objects) (name ?obj1)(room ?room)(zone ?zone)(upper nothing)(lower ?obj))
+        =>
+        (retract ?goal)
+        (modify ?f1 (upper nothing))
+        (modify ?f2 (lower base))
+        (bind ?*plan_number* (+ 1 ?*plan_number*))
+        (bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (printout t ?obj1 " will be moved onto free space in room " ?room crlf)
+        (assert (plan (name atrans)(id ?*plan_number*) (number 1 )(actions goto ?room ?zone)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 2 )(actions find-object ?obj1)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 3 )(actions grab ?obj1 )(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 4 )(actions find-object freespace)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 5 )(actions go freespace)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 6 )(actions drop ?obj1 )(duration ?*plan_time*)) )
+        (assert (attempt (name atrans) (id ?*plan_number*) (move ?obj1)(room ?room)(zone ?zone)(on freespace)(number 6 ) ))
+)
+
+
+
+(defrule move-to-free-space-objects-ROS
+        (declare (salience 100))
+        ?goal <- (goal (move ?obj1) (on freespace))
+        ?goal2 <- (goal (move ?obj2) (on freespace))
+        (ptrans (actor ?actor)(obj ?obj)(to ?place))
+        (item (type Robot) (name ?actor))
+        ?f2 <- (item (type Objects) (name ?obj1)(room ?room)(zone ?zone)(upper nothing)(lower ?obj2))
+        ?f1 <- (item (type Objects) (name ?obj2)(room ?room)(zone ?zone))
+        =>
+        (retract ?goal)
+        (modify ?f1 (upper nothing))
+        (modify ?f2 (lower base))
+        (bind ?*plan_number* (+ 1 ?*plan_number*))
+	(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (printout t ?obj1 " will be moved onto free space in room " ?room crlf)
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 1 )(actions goto ?room ?zone)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 2 )(actions find-object ?obj1)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 3 )(actions grab ?obj1 )(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 4 )(actions find-object freespace)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 5 )(actions go freespace)(duration ?*plan_time*)) )
+        (assert (plan (name ptrans)(id ?*plan_number*) (number 6 )(actions drop ?obj1 )(duration ?*plan_time*)) )
+        (assert (attempt (name ptrans) (id ?*plan_number*) (move ?obj1)(room ?room)(zone ?zone)(on freespace)(number 6 ) ))
+)
+
+
+(defrule atrans-move-to-free-space-objects-ROS
+        (declare (salience 100))
+        ?goal <- (goal (move ?obj1) (on freespace))
+        ?goal2 <- (goal (move ?obj2) (on freespace))
+        (atrans (actor ?actor)(obj ?obj)(to ?place))
+        (item (type Robot) (name ?actor))
+        ?f2 <- (item (type Objects) (name ?obj1)(room ?room)(zone ?zone)(upper nothing)(lower ?obj2))
+        ?f1 <- (item (type Objects) (name ?obj2)(room ?room)(zone ?zone))
+        =>
+        (retract ?goal)
+        (modify ?f1 (upper nothing))
+        (modify ?f2 (lower base))
+        (bind ?*plan_number* (+ 1 ?*plan_number*))
+        (bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (printout t ?obj1 " will be moved onto free space in room " ?room crlf)
+        (assert (plan (name atrans)(id ?*plan_number*) (number 1 )(actions goto ?room ?zone)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 2 )(actions find-object ?obj1)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 3 )(actions grab ?obj1 )(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 4 )(actions find-object freespace)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 5 )(actions go freespace)(duration ?*plan_time*)) )
+        (assert (plan (name atrans)(id ?*plan_number*) (number 6 )(actions drop ?obj1 )(duration ?*plan_time*)) )
+        (assert (attempt (name atrans) (id ?*plan_number*) (move ?obj1)(room ?room)(zone ?zone)(on freespace)(number 6 ) ))
+)
+
+
+
+(defrule exec-ptrans-object-direct-ROS
+        ?f <- (ptrans (actor ?actor)(obj ?obj)(to ?place))
+	(item (type Robot) (name ?actor))
+	(item (type Objects) (name ?obj)(room ?room)(zone ?zone)(upper nothing))
+	( Room (name ?place)(zone ?zone-place))
+        =>
+	; it sends the robot to the asqued zone
+	(retract ?f)
+	(bind ?*plan_number* (+ 1 ?*plan_number*))
+	(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (assert (plan (name ptrans)(id ?*plan_number* )(number 1 )(actions goto ?room ?zone)) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 2 )(actions find-object ?obj)) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 3 )(actions grab ?obj )) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 4 )(actions goto ?place ?zone-place)) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 5 )(actions find-object freespace)) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 6 )(actions go freespace )) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 7 )(actions drop ?obj )) )
+        (assert (attempt (name ptrans) (id ?*plan_number* ) (move ?obj)(room ?room)(zone ?zone)(on floor)(number 7 )))
+        (assert (finish-planner ptrans ?*plan_number* ?*plan_number_new*))
+)
+
+
+;(defrule exec-atrans-object-direct-ROS
+        ;?f <- (atrans (actor ?actor)(obj ?obj)(to ?place))
+        ;(item (type Robot) (name ?actor))
+        ;(item (type Objects) (name ?obj)(room ?room)(zone ?zone)(upper nothing))
+        ;( Room (name ?place)(zone ?zone-place))
+        ;=>
+        ; it sends the robot to the asqued zone
+        ;(retract ?f)
+        ;(bind ?*plan_number* (+ 1 ?*plan_number*))
+        ;(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        ;(assert (plan (name atrans)(id ?*plan_number* )(number 1 )(actions goto ?room ?zone)) )
+        ;(assert (plan (name atrans)(id ?*plan_number* ) (number 2 )(actions find-object ?obj)) )
+        ;(assert (plan (name atrans)(id ?*plan_number* ) (number 3 )(actions grab ?obj )) )
+        ;(assert (plan (name atrans)(id ?*plan_number* ) (number 4 )(actions goto ?place ?zone-place)) )
+        ;(assert (plan (name atrans)(id ?*plan_number* ) (number 5 )(actions find-object freespace)) )
+        ;(assert (plan (name atrans)(id ?*plan_number* ) (number 6 )(actions go freespace )) )
+        ;(assert (plan (name atrans)(id ?*plan_number* ) (number 7 )(actions drop ?obj )) )
+        ;(assert (attempt (name atrans) (id ?*plan_number* ) (move ?obj)(room ?room)(zone ?zone)(on floor)(number 7 )))
+        ;(assert (finish-planner atrans ?*plan_number* ?*plan_number_new*))
+;)
+
+
+(defrule exec-ptrans-human-ROS
+        ?f <- (ptrans (actor ?actor)(obj ?actor)(to ?human))
+	(item (type Robot) (name ?actor))
+        (item (type Human) (name ?human)(room ?room)(zone ?zone))
+        ;( Room (name ?place)(zone ?zone-place))
+        =>
+        ; it sends the robot to the asqued zone
+	(retract ?f)
+	(bind ?*plan_number* (+ 1 ?*plan_number*))
+	(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (assert (plan (name ptrans)(id ?*plan_number* )(number 1 )(actions goto ?room ?zone)) )
+        (assert (plan (name ptrans)(id ?*plan_number* ) (number 2 )(actions find-object ?human)) )
+        ;(assert (plan (name ptrans)(id ?*plan_number* ) (number 3 )(actions mv ?human )) )
+        (assert (attempt (name ptrans) (id ?*plan_number* ) (move ?actor)(room ?room)(zone ?zone)(on room)(number 2 )))
+        (assert (finish-planner ptrans ?*plan_number* ?*plan_number_new*))
+)
+
+
+
+(defrule exec-ptrans-attend-atrans-ROS
+	(declare (salience 200))
+ 	?f1 <- (ptrans (actor ?actor)(obj ?actor)(to ?room))
+	?f2 <- (attend (actor ?actor)(obj ?human)(from ?room))
+        ?f3 <- (atrans (actor ?actor)(obj ?obj)(to ?human))
+	(item (type Robot) (name ?actor))
+        (item (type Objects) (name ?obj)(upper nothing))
+        (item (type Human) (name ?human)(room ?room-human)(zone ?zone-human))
+        ( Room (name ?place)(zone ?zone-place))
+        =>
+	(retract ?f1 ?f2 ?f3)
+	(bind ?*plan_number* (+ 1 ?*plan_number*))
+	(bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (assert (plan (name ptrans-attend-atrans)(id ?*plan_number* )(number 1 )(actions goto ?room ?zone-place)) )
+        (assert (plan (name ptrans-attend-atrans)(id ?*plan_number* ) (number 2 )(actions find-object ?obj)) )
+        (assert (plan (name ptrans-attend-atrans)(id ?*plan_number* ) (number 3 )(actions grab ?obj )) )
+        (assert (plan (name ptrans-attend-atrans)(id ?*plan_number* ) (number 4 )(actions find-object ?human)) )
+        (assert (plan (name ptrans-attend-atrans)(id ?*plan_number* ) (number 5 )(actions go ?human )) )
+        (assert (plan (name ptrans-attend-atrans)(id ?*plan_number* ) (number 6 )(actions drop ?obj )) )
+        (assert (attempt (name ptrans-attend-atrans) (id ?*plan_number* )(move ?obj)(room ?room-human)(zone ?zone-human)(on ?human)(number 6 )))
+        (assert (finish-planner ptrans-attend-atrans ?*plan_number* ?*plan_number_new*))
+)
+
+
+
+(defrule exec-atrans-object-recepient-ROS
+        ?f <- (atrans (actor ?actor)(obj ?obj)(to ?human))
+	(not (attend ))
+        (item (type Robot) (name ?actor))
+        (item (type Objects) (name ?obj)(room ?room)(zone ?zone)(upper nothing))
+        (item (type Human) (name ?human)(room ?room-human)(zone ?zone-human))
+        ( Room (name ?place)(zone ?zone-place))
+        =>
+        ; it sends the robot to the asqued zone
+        (retract ?f)
+        (bind ?*plan_number* (+ 1 ?*plan_number*))
+        (bind ?*plan_number_new* (+ 1 ?*plan_number_new*))
+        (assert (plan (name atrans)(id ?*plan_number* )(number 1 )(actions goto ?room ?zone)) )
+        (assert (plan (name atrans)(id ?*plan_number* ) (number 2 )(actions find-object ?obj)) )
+        (assert (plan (name atrans)(id ?*plan_number* ) (number 3 )(actions grab ?obj )) )
+        (assert (plan (name atrans)(id ?*plan_number* ) (number 4 )(actions goto ?room-human ?zone-human)) )
+        (assert (plan (name atrans)(id ?*plan_number* ) (number 5 )(actions find-object ?human)) )
+        (assert (plan (name atrans)(id ?*plan_number* ) (number 6 )(actions go ?human )) )
+        (assert (plan (name atrans)(id ?*plan_number* ) (number 7 )(actions drop ?obj )) )
+        (assert (attempt (name atrans) (id ?*plan_number* )(move ?obj)(room ?room-human)(zone ?zone-human)(on ?human)(number 7 )))
+        (assert (finish-planner atrans ?*plan_number* ?*plan_number_new*))
+)
+
+
+
+
+(defrule go-zone-same-zone
+	(declare (salience -7100))
+	?f <- (ptrans (actor ?actor)(obj ?actor)(to ?zone)(from ?from&:(neq ?from nil)) )
+	(robots (name ?actor)(zone ?zone))
+	=>
+	(retract ?f)
+	(assert (answer MVN-PLN go_to_room ?zone 1 1 0))
+	; it sends the robot to the asqued zone
+	(bind ?message (str-cat "I am already in the " ?zone))
+	(assert (send-speech ?message))
+	;(printout t crlf "Command: " ?message crlf)
+)
+
+
+(defrule arrive-place
+	(declare (salience 100))
+	?f <- (answer MVN-PLN go_to_room ?room 1 $?dummy)
+	?f1 <- (ptrans (actor ?actor)(obj ?actor)(to ?room))
+	(not (grab (actor ?actor)(obj ?obj)))
+	(not (atrans ))
+	?f2 <- (robots (name ?actor)(zone ?))
+	=>
+	(retract ?f)
+	(retract ?f1)
+	(modify  ?f2 (zone ?room))
+	(bind ?message (str-cat "I arrive to the " ?room))
+	(assert (send-speech ?message))
+	(assert (send-tk "PlotSensor"))
+	;(printout t crlf "Command: " ?message crlf)
+)
+
+
+(defrule arrive-place-human
+        (declare (salience 100))
+        ?f <- (answer MVN-PLN go_to_room ?room 1 $?dummy)
+        ;?f1 <- (ptrans (actor ?actor)(obj ?actor)(to ?room))
+	?f1 <- (ptrans (actor ?actor)(obj ?actor)(to ?person)(from ?from&:(neq ?from nil)) )
+        (human (name ?person) (zone ?zone))
+
+        (not (grab (actor ?actor)(obj ?obj)))
+        (not (atrans ))
+        ?f2 <- (robots (name ?actor)(zone ?))
+        =>
+        (retract ?f)
+        (retract ?f1)
+        (modify  ?f2 (zone ?room))
+        (bind ?message (str-cat "I arrive to the " ?room))
+        (assert (send-speech ?message))
+        (assert (send-tk "PlotSensor"))
+        ;(printout t crlf "Command: " ?message crlf)
+)
+
+
+
+
+
+(defrule arrive-place-obj
+	(declare (salience 200))
+        ?f <- (answer MVN-PLN go_to_room ?room 1 $?dummy)
+	(not (atrans ))
+        ;?f1 <- (ptrans (actor ?actor)(obj ?obj&:(neq ?actor ?obj))(to ?zone))
+        ?f3 <- (ptrans (actor ?actor)(obj ?actor)(to ?zone))
+	?f1 <- (robots (name ?actor)(hands ?obj&:(neq ?obj nil)))
+        (not (grab (actor ?actor)(obj ?obj)))
+        ?f2 <- (robots (name ?actor)(zone ?)(manipulator ?arm))
+        =>
+        (retract ?f)
+        (modify  ?f2 (zone ?room))
+        (bind ?message (str-cat "I arrive to the " ?room))
+        (assert (send-speech ?message))
+        ;(printout t crlf "Command: " ?message crlf)
+	;(bind ?command (str-cat "release \"" ?obj "\""))
+	(bind ?command (str-cat "" ?obj ""))
+	(if (eq ?arm lower) then
+                        (assert (send-manipulator release ?command))
+                else
+                        (assert (send-manipulator drop ?command))
+        )
+	;(assert (get-data-manipulator 1 ?command))
+	(assert (send-tk "PlotSensor"))
+
+
+)
+
+(defrule release-obj
+        ?f <- (answer MANIPULATOR ?rel&:(or (eq ?rel release) (eq ?rel drop)) ?obj 1 $?dummy)
+        ;?f3 <- (ptrans (actor ?actor)(obj ?obj)(to ?zone))
+        ?f2 <- (ptrans (actor ?actor)(obj ?actor)(to ?zone))
+        ?f1 <- (robots (name ?actor)(hands ?obj))
+        ?f4 <- (objects (name ?obj))
+        =>
+        (retract ?f ?f2)
+        (modify ?f1 (hands nil))
+        (modify ?f4 (zone ?zone))
+
+        (bind ?message (str-cat "I deliver the " ?obj " to the " ?zone))
+	(assert (send FACE show happy))
+        (assert (send-speech ?message))
+	;(assert (delete get-data MANIPULATOR))
+
+)
+
+
+
+
+(defrule did-not-arrive-place
+	(declare (salience 200))
+	?f <- (answer MVN-PLN go_to_room ?room 0 $?dummy)
+	=>
+	(retract ?f)
+
+	(bind ?command (str-cat "" ?room ""))
+        (assert (send-robot go_to_room ?command))
+
+	(bind ?message (str-cat "I did not arrive to the " ?room))
+	(assert (send-tk "PlotSensor"))
+	(assert (send FACE show sad))
+	(assert (send-speech ?message))
+	(bind ?message (str-cat "I will try again"))
+	(assert (send-speech ?message))
+	(printout t crlf "Try again command: " ?message crlf)
+
+	(assert (again MVN-PLN 0))
+)
+
+
+(defrule did-not-arrive-place-again
+        (declare (salience 300))
+        ?f <- (answer MVN-PLN go_to_room ?room 0 $?dummy)
+	?f1 <- (again MVN-PLN ?num)
+	?f2 <- (ptrans (actor ?actor)(obj ?actor)(from ?from&:(neq ?from nil))(to ?zone))
+        =>
+        (retract ?f ?f1)
+
+	(if (< ?num 5) then
+        	(bind ?command (str-cat "" ?room ""))
+        	(assert (send-robot go_to_room ?command))
+
+        	(bind ?message (str-cat "I did not arrive to the " ?room))
+        	(assert (send-tk "PlotSensor"))
+        	(assert (send FACE show sad))
+        	(assert (send-speech ?message))
+        	(bind ?message (str-cat "I will try again"))
+        	(assert (send-speech ?message))
+        	(printout t crlf "Try again command: " ?message crlf)
+		(assert (again MVN-PLN (+ ?num 1)))
+	else
+		(bind ?message (str-cat "Please tell me what to do"))
+                (assert (send-speech ?message))
+		(bind ?message (str-cat "I could not arrive to the " ?room))
+                (assert (send-speech ?message))
+		(retract ?f2)
+	)
+)
+
+
+
+(defrule get-room
+	?f <- (answer MVN-PLN get_room ?room 1 ?num)
+	?f2 <- (robots (name ?actor)(zone ?))
+	=>
+	(retract ?f)
+	(modify  ?f2 (zone ?room))
+	(bind ?message (str-cat "I am in the " ?room))
+	(assert (send-speech ?message))
+	;(printout t crlf "Command: " ?message crlf)
+)
+
+
+
+(defrule wait-get-data
+	?fact0 <- (get-data-robot ?num ?command)
+	=>
+	(retract ?fact0)
+        (assert (get-data-robot (+ ?num 1) ?command))
+)
+
+;(defrule wait-get-data-vision
+        ;?fact0 <- (get-data-vision ?num ?command)
+        ;=>
+        ;(retract ?fact0)
+        ;(assert (get-data-vision (+ ?num 1) ?command))
+;)
+
+;(defrule wait-get-data-manipulator
+        ;?fact0 <- (get-data-manipulator ?num ?command)
+        ;=>
+        ;(retract ?fact0)
+        ;(assert (get-data-manipulator (+ ?num 1) ?command))
+;)
+
+
+
+(defrule wait-get-data-system
+        (declare (salience -7000))
+        ?fact0 <- (get-data ?system $?command ?num_total ?num)
+        ;(not (get-data ?system $?command ?num_total1&:(> ?num_total1 ?num_total)  ?num1))
+	;(not (delete get-data ?system))
+        =>
+        (retract ?fact0)
+        (if (< ?num 10000) then
+        ;(if (< ?num 5) then
+                (assert (get-data ?system $?command ?num_total (+ ?num 1)))
+        else
+            (if (< ?num_total 1000) then
+            ;(if (< ?num_total 4) then
+		(if (or (eq ?num_total 750) (eq ?num_total 900) ) then
+		;(if (or (eq ?num_total 2) (eq ?num_total 3) ) then
+			(bind ?message (str-cat "still waiting for an answer from " ?system))
+	        	(assert (send-speech ?message))
+                	(printout t crlf ?message crlf)
+			(if (eq ?system MANIPULATOR) then (assert (send-manipulator $?command)))
+			(if (eq ?system MVN-PLN) then (assert (send-robot $?command)))
+			(if (eq ?system VISION) then (assert (send-vision $?command)))
+			(bind ?message (str-cat "sending the command again"))
+	        	(assert (send-speech ?message))
+                	(printout t crlf ?message crlf)
+		)
+                (assert (get-data ?system $?command (+ ?num_total 1) 0 ))
+                (printout t crlf "wait-data " $?command " " (+ ?num_total 1) crlf)
+             else
+		(bind ?message (str-cat "data did not arrive from " ?system))
+	        (assert (send-speech ?message))
+                (printout t crlf ?message crlf)
+		(assert (answer ?system $?command 0 dummy dummy1))
+		;(assert (delete get-data ?system))
+                ;(assert (send-network BLK-BOARD ?destination $?command ))
+                ;(assert (wait-data ?source ?destination $?command 0 0 ))
+             )
+        )
+)
+
+
+
+
+
+(defrule delete-get-data
+        (declare (salience -6000))
+        ?fact0 <- (delete get-data ?system)
+        ?fact1 <- (get-data ?system $?command ?num_total ?num)
+        =>
+        (retract ?fact1)
+)
+
+(defrule delete-delete-get-data
+        (declare (salience -6300))
+        ?fact0 <- (delete get-data ?system)
+        =>
+        (retract ?fact0)
+)
+
+
+
+
+(defrule wait-get-data-face
+	(declare (salience -7000))
+        ?fact0 <- (get-data-face ?num ?command)
+        =>
+        (retract ?fact0)
+        (assert (get-data-face (+ ?num 1) ?command))
+)
+
+(defrule wait-get-data-sp-gen
+        (declare (salience -7000))
+        ?fact0 <- (get-data-sp-gen ?num ?command)
+        =>
+        (retract ?fact0)
+        (assert (get-data-sp-gen (+ ?num 1) ?command))
+)
+
+
+;(defrule transform-network-myexplode
+        ;(declare (salience 8000))
+        ;?fact <- (network ?source ?command ?str-parameters $?data)
+        ;?f <- (get-data ?source ?command $? ?num_total ?num)
+        ;=>
+        ;(retract ?fact)
+	;(myexplode ?str-parameters)
+	;(assert (rest ?source ?command $?data))
+;)
+
+
+;(defrule new-network-myexplode
+        ;(declare (salience 8000))
+        ;?fact <- (myexplode $?str-parameters)
+        ;?f <- (rest ?source ?command $?data)
+        ;=>
+        ;(retract ?f ?fact) 
+        ;(assert (net ?source ?command $?str-parameters $?data))
+;)     
+
+
+(defrule transform-network-robot
+	(declare (salience 100))
+        ?fact <- (net MVN-PLN $?data)
+	?f <- (get-data MVN-PLN $?command ?num_total ?num)
+        =>
+        (retract ?f)
+	(retract ?fact)
+        (assert (answer MVN-PLN $?data))
+)
+
+
+(defrule transform-network-vision
+	(declare (salience 100))
+        ?fact <- (net VISION $?data)
+	?f <- (get-data VISION $?command ?num_total ?num)
+	;?f <- (get-data-vision ? ?command)
+        =>
+        (retract ?fact)
+	(retract ?f)
+        (assert (answer VISION $?data))
+)
+
+
+(defrule transform-network-manipulator
+        (declare (salience 100))
+        ?fact <- (net MANIPULATOR $?data)
+	?f <- (get-data MANIPULATOR $?command ?num_total ?num)
+        ;?f <- (get-data-manipulator ? ?command)
+        =>
+        (retract ?fact)
+        (retract ?f)
+        (assert (answer MANIPULATOR $?data))
+	;(assert (delete get-data MANIPULATOR))
+)
+
+
+(defrule transform-network-face
+        (declare (salience 100))
+        ?fact <- (net FACE $?data)
+        ?f <- (get-data-face ? ?command)
+        =>
+        (retract ?fact)
+        (retract ?f)
+        (assert (answer-FACE $?data))
+)
+
+
+(defrule transform-network-face-no-get
+        (declare (salience 100))
+        ?fact <- (net FACE $?data)
+        (not (get-data-face ? ?command))
+        =>
+        (retract ?fact)
+)
+
+
+
+
+;(defrule transform-network-sp-gen
+        ;(declare (salience 100))
+        ;?fact <- (network SP-GEN ?command $?data)
+        ;?f <- (get-data SP-GEN ?command $?)
+        ;=>
+        ;(retract ?fact)
+        ;(retract ?f)
+        ;(assert (answer-SP-GEN $?data))
+;)
+
+
+
+(defrule arrive-place-person
+	?f <- (answer MVN-PLN go_to_room ?room 1 $?dummy)
+	(atrans (actor ?actor)(obj ?obj)(to ?person))
+	?f2 <- (robots (name ?actor)(zone ?room))
+	(human (name ?person)(zone ?room))
+	=>
+	(retract ?f)
+	;(modify  ?f2 (zone ?room))
+	; it search for the person and releases the object
+	(assert (send FACE show looking))	
+	(bind ?message (str-cat "I am looking for " ?person))
+	(assert (send-speech ?message))
+
+	(bind ?command (str-cat "" ?person ""))
+	(assert (send-vision find_human ?command))
+	;(assert (get-data-vision 1 ?command))
+	(assert (send-tk "PlotSensor"))
+	(printout t crlf "Command: " ?message crlf)
+)
+
+
+(defrule deliver-found-person-obj
+	?f <- (answer VISION find_human ?person 1 $?dummy)
+	?f3 <- (atrans (actor ?actor)(obj ?obj)(to ?person))
+	?f2 <- (robots (name ?actor)(hands nil)(manipulator ?arm))
+	=> 
+	(retract ?f)
+	(bind ?command (str-cat "" ?obj ""))
+	(if (eq ?arm lower) then
+			(assert (send-manipulator release ?command))
+                else
+                        (assert (send-manipulator drop ?command))
+        )
+
+	;(assert (get-data-manipulator release ?command 0 0))
+	(bind ?message (str-cat "I found " ?person))
+	(assert (send FACE show happy))
+	(assert (send-speech ?message))
+)
+
+
+(defrule deliver-obj
+        ?f <- (answer MANIPULATOR ?rel&:(or (eq ?rel release) (eq ?rel drop)) ?obj 1 $?dummy)
+	?f3 <- (atrans (actor ?actor)(obj ?obj)(to ?person))
+        ?f1 <- (robots (name ?actor)(hands ?obj))
+        ?f2 <- (human (name ?person)(objs $?objects)(zone ?room))
+        ?f4 <- (objects (name ?obj))
+        =>
+        (retract ?f ?f3) 
+        (modify ?f1 (hands nil))
+        (modify ?f2 (objs ?obj $?objects ))
+        (modify ?f4 (zone ?room)(possession ?person))
+
+        (bind ?message (str-cat "I deliver the " ?obj " to " ?person))
+	(assert (send FACE show happy))
+        (assert (send-speech ?message))
+	;(assert (delete get-data MANIPULATOR))
+
+)
+
+
+
+
+(defrule deliver-obj-ptrans
+	(declare (salience 100))
+	?f <- (answer MVN-PLN go_to_room ?room 1 $?dummy)
+	?f1 <- (robots (name ?actor)(hands ?obj)(manipulator ?arm))
+	?f3 <- (ptrans (actor ?actor)(obj ?obj)(to ?room))
+	?f4 <- (objects (name ?obj))
+	=>
+	(modify  ?f1  (hands nil) (zone ?room))
+	(retract ?f3 ?f)	
+	(modify ?f4 (zone ?room))
+	(bind ?command (str-cat "" ?obj ""))
+	(if (eq ?arm lower) then
+                        (assert (send-manipulator release ?command))
+                else
+                        (assert (send-manipulator drop ?command))
+        )
+
+	;(assert (get-data-manipulator 1 ?command))
+	;(assert (get-data-manipulator release ?command 0 0))
+	;(bind ?message (str-cat "I deliver the " ?obj " to " ?room))
+	;(assert (send-speech ?message))
+	;(printout t crlf "Command: " ?message crlf)
+	(bind ?message (str-cat "I arrive to the room"))
+	(assert (send-speech ?message))
+	;(printout t crlf "Command: " ?message crlf)
+	(assert (send-tk "PlotSensor"))
+)
+
+
+(defrule answer-where-obj-qtrans
+	(declare (salience 100))
+	?f <- (qtrans (actor ?actor)(question where)
+		    (aux-verb ?verb&:(or (eq ?verb is) (eq ?verb are)) )
+		    (verb nil)(human nil)(obj ?obj)(answer nil))
+	(objects (name ?obj) (zone ?zone))
+	?f1 <- (present-place ?place)
+  	=>
+	(retract ?f1)
+	(modify ?f (answer ?zone))
+	(assert (present-place ?zone))
+)
+
+
+
+(defrule answer-where-human-qtrans
+	(declare (salience 100))
+	?f <- (qtrans (actor ?actor)(question where)(aux-verb is)
+		    (verb nil)(human ?human)(obj nil)(answer nil))
+	 (human (name ?human)(zone ?loc-human))
+	?f1 <- (present-place ?place)
+	?f2 <- (present-recepient ?rec)
+  	=>
+	(retract ?f1 ?f2)
+	(modify ?f (answer ?loc-human))
+	(assert (present-place ?loc-human))
+	(assert (present-recepient ?human))
+)
+
+(defrule answer-where-robot-qtrans
+	(declare (salience 100))
+	?f <- (qtrans (actor ?actor)(question where)(aux-verb are)
+		    (verb nil)(human you)(obj nil)(answer nil))	
+	(robots (name ?actor) (zone ?zone))
+  	=>
+	(modify ?f (answer ?zone))
+)
+
+
+(defrule qtrans-nils-answer-who
+        (declare (salience 100))
+        ?fact <- (qtrans (answer nil) (obj ?obj) (question who)
+                         (aux-verb ?verb&:(or (eq ?verb nil) (eq ?verb have)) ))
+        ?object <- (objects (name ?obj)(possession ?actor-poss))
+        =>
+        (modify ?fact (answer ?actor-poss) )
+)
+
+
+
+
+
+(defrule speek-answer-qtrans-where
+	?f <- (qtrans (actor ?actor)(question where)(aux-verb ?aux)
+		    (verb ?nil)(human ?human)(obj ?obj)(answer ?zone&:(neq ?zone nil)) )
+  	=>
+	(retract ?f )
+	
+	(if (neq ?human nil) then 
+		(bind ?item ?human)
+	  else
+		(bind ?item ?obj)
+	)
+	(if (eq ?item you) then
+		(bind ?message (str-cat "I am in the " ?zone) )
+	 else
+		(bind ?message (str-cat "The " ?item " " ?aux " in the " ?zone) )
+	)
+
+	(assert (send-speech ?message))
+)
+
+
+
+(defrule speek-answer-qtrans-who
+        ?f <- (qtrans (obj ?obj) (question who)(aux-verb ?aux) (answer ?person&:(neq ?person nil)) )
+        =>
+        (retract ?f )
+
+	(if (eq ?aux have) then (bind ?aux has))
+                                                                                                                                 
+        (if (eq ?person nobody) then
+                (bind ?message (str-cat "Nobody " ?aux " the " ?obj) )
+         else
+                (bind ?message (str-cat "The " ?person " "  ?aux " the " ?obj) )
+        )
+                                                                                                                                 
+        (assert (send-speech ?message))
+)
+
+
+(defrule speek-answer-qtrans-what
+        ?f <- (qtrans (obj name) (question what)(aux-verb is) )
+        =>
+        (retract ?f )
+        (bind ?message (str-cat "I am robot TPR8") )
+	(assert (send FACE show happy))
+        (assert (send-speech ?message))
+)
+
+
+
+(defrule find-qtrans-what-this
+ 	?f <-(qtrans (actor robot) (question what) (aux-verb is) (obj this))
+        =>
+        ;(retract ?f )
+	(bind ?command (str-cat "" all ""))
+        (assert (send-vision find_object ?command))
+        (assert (send FACE show looking))
+)
+
+
+
+(defrule answer-qtrans-found-this
+        ?f <- (answer VISION find_object ?obj 1 $?dummy)
+ 	?f1 <-(qtrans (actor robot) (question what) (aux-verb is) (obj this))
+        =>
+        (retract ?f ?f1)
+        (bind ?message (str-cat "This is a " ?obj))
+        (assert (send-speech ?message))
+)
+
+
+
+
+
+(defrule speek-answer-qtrans-you
+	?f <- (qtrans (actor robot)(question who)(aux-verb are)(human you))
+        =>
+        (retract ?f )
+        (bind ?message (str-cat "I am robot TPR8") )
+	(assert (send FACE show happy))
+        (assert (send-speech ?message))
+
+)
+
+
+(defrule speek-answer-greeting
+	?f <- (mtrans (obj hello))
+        =>
+        (retract ?f )
+        (bind ?message (str-cat "Hello, I am at your service") )
+	(assert (send FACE show happy))
+        (assert (send-speech ?message))
+
+)
+
+
+(defrule speek-answer-qtrans-where-obj-robot
+        ?f <- (qtrans (actor ?actor&:(neq ?actor nil) ) (question where)(obj ?obj&:(neq ?obj nil))
+			(aux-verb ?verb&:(or (eq ?verb is) (eq ?verb are))))
+	(objects (name ?obj)(zone robot ))
+        =>
+        (retract ?f )
+	(if (eq ?verb are) then
+        	(bind ?message (str-cat "I will show you where are my " ?obj ) )
+	 else
+
+        	(bind ?message (str-cat "I will show you where is my " ?obj ) )
+	)
+        (assert (send-speech ?message))
+)
+
+
+
+(defrule speek-answer-qtrans-where-place
+	?f <- (qtrans (actor ?actor&:(neq ?actor nil) ) (question where) (aux-verb is)(obj ?place&:(neq ?place nil)))
+	(zones ?place $?)
+        =>
+        (retract ?f )
+        (bind ?message (str-cat "The " ?place " is over there") )
+        (assert (send-speech ?message))
+)
+
+
+(defrule speek-answer-qtrans-how-many
+        ?f <- (qtrans (actor ?actor&:(neq ?actor nil) ) (question how) (aux-verb have)(obj ?obj&:(neq ?obj nil)))
+	 (objects (name ?obj) (num ?num))
+        =>
+        (retract ?f )
+        (bind ?message (str-cat "I have " ?num " " ?obj) )
+        (assert (send-speech ?message))
+)
+
+
+(defrule speek-answer-qtrans-how-show
+        ?f <- (qtrans (actor ?actor&:(neq ?actor nil) ) (question how) (verb work)(obj ?obj&:(neq ?obj nil)))
+         (objects (name ?obj) (num ?num))
+        =>
+        (retract ?f )
+        (bind ?message (str-cat "I will show you how my " ?obj " work ") )
+        (assert (send-speech ?message))
+)
+
+
+
+
+
+
+
+;it deletes tk commands
+(defrule delete-tk-command
+           (declare (salience -9000))
+           ?fact1 <- (send-tk ?command)
+        =>
+
+           (retract ?fact1)
+
+)
+
+
+
+(defrule command-start-romba
+        (declare (salience 1000))
+	?fact <- (sentence-speech $?dummy start $?dummy1 cleaning $?dummy2)
+	(address ROMBA ?addr)
+        (port_out ROMBA  ?port)
+        =>
+	(retract ?fact)
+        ;(bind ?command (str-cat "rsh -l savage 192.168.0.101 /home/savage/robots/iRobot/iRobotDemo/demo 0 &"))
+        ;(bind ?command (str-cat "/home/savage/sockets_tcp/sckts/server_network_line -f \"demo 0 \" -a localhost -w 2010 "))
+        (bind ?command (str-cat "/home/savage/sockets_tcp/sckts/server_network_line -f \"demo%1\" -a " ?addr " -w " ?port ))
+        (printout t "Command to Romba: " ?command crlf)
+        (system ?command)
+        (bind ?command (str-cat "/home/savage/sockets_tcp/sckts/server_network_line -f \"demo%1\" -a " ?addr " -w " ?port ))
+        (printout t "Command to Romba: " ?command crlf)
+        (system ?command)
+	(bind ?message (str-cat "please little robot start cleaning the house ") )
+        (assert (send-speech ?message))
+
+
+)
+
+
+(defrule command-stop-romba
+        (declare (salience 1000))
+        ?fact <- (sentence-speech $?dummy stop $?dummy1 cleaning $?dummy2)
+        (address ROMBA ?addr)
+        (port_out ROMBA ?port)
+	=>
+        (retract ?fact)
+        ;(bind ?command (str-cat "rsh -l savage 192.168.0.101 /home/savage/robots/iRobot/iRobotDemo/demo 0 &"))
+        (bind ?command (str-cat "/home/savage/sockets_tcp/sckts/server_network_line -f \"abort\" -a " ?addr " -w " ?port ))
+        (printout t "Command to Romba: " ?command crlf)
+        (system ?command)
+        (bind ?command (str-cat "/home/savage/sockets_tcp/sckts/server_network_line -f \"abort\" -a " ?addr " -w " ?port ))
+        (printout t "Command to Romba: " ?command crlf)
+        (system ?command)
+        (bind ?message (str-cat "little robot, please do not clean the house anymore") )
+        (assert (send-speech ?message))
+
+
+)
+
+
+
+
+(defrule command-romba-clean
+        (declare (salience 1000))
+        ?fact <- (sentence-speech $?dummy clean $?dummy2)
+        =>
+        (retract ?fact)
+        (bind ?command (str-cat "rsh -l savage 192.168.1.102 /home/savage/robots/iRobot/iRobotDemo/demo 0 &"))
+        (printout t "Command to Romba: " ?command crlf)
+        (system ?command)
+	(bind ?message (str-cat "please little robot start cleaning the house ") )
+        (assert (send-speech ?message))
+
+)
+
+
+
+
+
+
