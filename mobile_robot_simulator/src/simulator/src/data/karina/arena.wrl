@@ -1,0 +1,29 @@
+;******************************************************************************
+;* File: arena.wrl                                                             *
+;*          Definition of the forbidden and allowed areas in the Robot's      *
+;*          world. These areas are derivated from the objects in the          *
+;*          world.                                                            *
+;******************************************************************************
+
+( dimensions room 8.000 14.000 )
+
+;Bloque 1
+(polygon wall wall1  0.0 0.0 0.0 3.0 0.01 3.0 0.01 0.0)
+(polygon wall wall2  0.0 2.99 0.0 3.0 1.0 3.0 1.0 2.99 )
+(polygon wall wall3  1.0 0.0 1.0 2.0 1.01 2.0 1.01 0.0)
+(polygon wall wall4  1.0 0.0 0.01 0.01 2.0 0.01 2.0 0.0)
+
+;Bloque 2
+(polygon wall wall5  0.0 5.0 0.0 5.5 0.01 5.5 0.01 5.0)
+(polygon wall wall6  0.0 7.0 0.0 9.0 0.01 9.0 0.01 7.0)
+
+;Bloque 3
+(polygon wall wall7  0.0 11.0 0.0 14.0 0.01 14.0 0.01 11.0) 
+(polygon wall wall8  0.0 11.0 0.0 11.01 1.0 11.01 1.0 11.0)
+(polygon wall wall9  1.0 12.0 1.0 14.0 1.01 14.0 1.01 12.0)
+(polygon wall wall10 1.0 13.99 1.0 14.0 2.0 14.0 2.0 13.99)
+
+;Bloque 4
+(polygon wall wall11 6.5 0.0 6.5 0.01 8.0 0.01 8.0 0.0) 
+(polygon wall wall11 6.5 13.99 6.5 14.0 8.0 14.0 8.0 13.99) 
+(polygon wall wall11 7.99 0.0 7.99 14.0 8 14.0 8.0 0.0) 

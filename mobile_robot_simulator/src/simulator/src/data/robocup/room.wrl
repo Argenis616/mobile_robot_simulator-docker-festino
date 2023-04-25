@@ -31,9 +31,15 @@
 ;* Paredes del campo *
 
 
-( polygon wall wall1  0.0 0.0 0.0 0.99 0.0 0.99 0.0 0.0 )
-( polygon wall wall1  0.0 0.99 0.0 0.01 1.0 0.01 1.0 0.99 )
-( polygon wall wall1  0.0 0.0 0.0 1.0 0.01 1.0 0.01 0.0 )
-( polygon wall wall2  0.0 0.99 0.0 1.0 1.0 1.0 1.0 0.99 )
-( polygon wall wall2  0.99 1.0 1.0 1.0 1.0 0.0 0.99 0.0 )
-( polygon wall wall2  1.0 0.01 1.0 0.0 0.0 0.0 0.0 0.01 )
+( polygon wall wall1  0.0 0.0 3.0 0.0 3.01 0.01 0.01 0.01 )
+( polygon wall wall2  3.0 0.0 3.0 1.0 3.01 1.01 3.01 0.01 )
+( polygon wall wall3  0.0 1.0 2.0 1.0 2.01 1.01 0.01 1.01 )
+( polygon wall wall4  0.0 1.0 0.0 2.0 0.01 2.01 0.01 1.01 )
+( polygon wall wall5  5.0 0.0 9.0 0.0 9.01 0.01 5.01 0.01 )
+( polygon wall wall6  11.0 0.0 11.0 1.0 11.01 1.01 11.01 0.01 )
+( polygon wall wall7  11.0 0.0 14.0 0.0 14.01 0.01 11.01 0.01 )
+( polygon wall wall8  12.0 1.0 14.0 1.0 14.01 1.01 12.01 1.01 )
+( polygon wall wall9  14.0 1.0 14.0 2.0 14.01 2.01 14.01 1.01 )
+( polygon wall wall10  0.0 6.50 0.0 8.0 0.01 8.01 0.01 6.51 )
+( polygon wall wall11  14.0 6.5 14.0 8.0 14.01 8.01 14.01 6.51 )
+( polygon wall wall12  0.0 8.0 14.0 8.0 14.01 8.01 0.01 8.01 )
