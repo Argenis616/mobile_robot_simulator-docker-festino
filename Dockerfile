@@ -60,9 +60,8 @@ RUN dpkg --add-architecture i386
 RUN wget -nc https://dl.winehq.org/wine-builds/winehq.key
 RUN apt-key add winehq.key
 RUN wget -qO- https://dl.winehq.org/wine-builds/Release.key | apt-key add -
-RUN apt-get -y install software-properties-common \
-    && add-apt-repository 'deb http://dl.winehq.org/wine-builds/ubuntu/ bionic main' \
-    && apt-get update
+RUN apt-get update
+RUN apt-get -y install software-properties-common && add-apt-repository 'deb http://dl.winehq.org/wine-builds/ubuntu/ bionic main'
 
 RUN apt-get -y install --install-recommends winehq-devel cabextract mono-complete
 

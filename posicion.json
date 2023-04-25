@@ -1,0 +1,14 @@
+machines { name: "M-CS2" type: "CS" state: "IDLE" team_color: MAGENTA zone: C_Z26 rotation: 270
+} 
+machines { name: "M-BS" type: "BS" state: "IDLE" team_color: MAGENTA zone: M_Z15 rotation: 270
+} 
+machines { name: "M-DS" type: "DS" state: "IDLE" team_color: MAGENTA zone: M_Z34 rotation: 90
+} 
+machines { name: "M-SS" type: "SS" state: "IDLE" team_color: MAGENTA zone: M_Z58 rotation: 180
+} 
+machines { name: "M-RS1" type: "RS" state: "IDLE" team_color: MAGENTA zone: M_Z36 rotation: 90 ring_colors: RING_ORANGE ring_colors: RING_GREEN
+} 
+machines { name: "M-CS1" type: "CS" state: "IDLE" team_color: MAGENTA zone: M_Z43 rotation: 270
+} 
+machines { name: "M-RS2" type: "RS" state: "IDLE" team_color: MAGENTA zone: C_Z63 rotation: 90 ring_colors: RING_BLUE ring_colors: RING_YELLOW
+} team_color: MAGENTA

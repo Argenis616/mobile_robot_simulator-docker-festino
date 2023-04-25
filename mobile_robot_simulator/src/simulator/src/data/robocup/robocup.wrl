@@ -10,28 +10,28 @@
 
 ;* estaciones del equipo cyan *
 
-( polygon obstacle BaseStationC  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle CapStationC1  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle CapStationC2  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle RingStationC1  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle RingStationC2  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle StorageStationC  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle Delivery StationC  .40 .55 .60 .55 .60 .35 .40 .35 )
+;*( polygon obstacle BaseStationC  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle CapStationC1  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle CapStationC2  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle RingStationC1  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle RingStationC2  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle StorageStationC  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle Delivery StationC  .40 .55 .60 .55 .60 .35 .40 .35 )*
 
 ;* estaciones del equipo magenta *
 
-( polygon obstacle BaseStationM  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle CapStationM1  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle CapStationM2  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle RingStationM1  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle RingStationM2  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle StorageStationM  .40 .55 .60 .55 .60 .35 .40 .35 )
-( polygon obstacle DeliveryStationM  .40 .55 .60 .55 .60 .35 .40 .35 )
+;*( polygon obstacle BaseStationM  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle CapStationM1  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle CapStationM2  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle RingStationM1  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle RingStationM2  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle StorageStationM  .40 .55 .60 .55 .60 .35 .40 .35 )*
+;*( polygon obstacle DeliveryStationM  .40 .55 .60 .55 .60 .35 .40 .35 )*
 
 ;* Paredes del campo *
 
 
-( polygon wall wall1  0.0 0.0 3.0 0.0 3.01 0.01 0.01 0.01 )
+( polygon wall wall1  0.0 0.0 0.01 0.01 3.01 0.01 3.0 0.0)
 ( polygon wall wall2  3.0 0.0 3.0 1.0 3.01 1.01 3.01 0.01 )
 ( polygon wall wall3  0.0 1.0 2.0 1.0 2.01 1.01 0.01 1.01 )
 ( polygon wall wall4  0.0 1.0 0.0 2.0 0.01 2.01 0.01 1.01 )
